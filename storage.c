@@ -2,46 +2,41 @@
 
 static uv_loop_t *loop = NULL;
 
-static void on_uv_open (uv_fs_t* req) {
-  _dat_storage_req* open_req = (_dat_storage_req *) req;
-  dat_storage_t *self = req->data;
+static void on_uv_callback (uv_fs_t *ureq) {
+  dat_storage_req_t* req = (dat_storage_req_t *) ureq;
+  dat_storage_t *self = ureq->data;
+  dat_storage_callback_t cb = req->callback;
+  long result = ureq->result;
 
-  void *ctx = open_req->ctx;
-  void (*on_open)(struct dat_storage_t* self, long result, void* ctx) = open_req->callback;
-  long result = req->result;
+  uv_fs_req_cleanup((uv_fs_t *) req);
 
-  uv_fs_req_cleanup(req);
-
-  if (on_open) {
-    on_open(self, result, ctx);
+  if (cb) {
+    cb(self, result, req);
   }
 }
 
-static void on_read (uv_fs_t *req) {
-
+static void on_uv_open (uv_fs_t* ureq) {
+  dat_storage_t *self = ureq->data;
+  long result = ureq->result;
+  if (result > -1) self->_file = result;
+  on_uv_callback(ureq);
 }
 
 void dat_storage_init (dat_storage_t* self, char *path) {
   if (!loop) loop = uv_default_loop();
-
-  self->on_open = NULL;
-  self->on_read = NULL;
-  self->on_write = NULL;
-  self->on_close = NULL;
   self->path = path;
 }
 
-void dat_storage_open (dat_storage_t* self, void *ctx, void (*on_open)(struct dat_storage_t* self, long result, void* ctx)) {
-  _dat_storage_req* open_req = &(self->_open_req);
-  uv_fs_t* req = (uv_fs_t *) open_req;
+void dat_storage_open (dat_storage_t* self, dat_storage_req_t* req, dat_storage_callback_t on_open) {
+  req->req.data = self;
+  req->callback = on_open;
 
-  req->data = self;
-  open_req->ctx = ctx;
-  open_req->callback = on_open;
-
-  uv_fs_open(loop, req, self->path, O_RDONLY, 0, on_uv_open);
+  uv_fs_open(loop, (uv_fs_t *) req, self->path, O_RDONLY, 0, on_uv_open);
 }
 
-void dat_storage_read (dat_storage_t* self, void *ctx, long offset, uv_buf_t *buf) {
+void dat_storage_read (dat_storage_t* self, dat_storage_req_t* req, dat_storage_callback_t on_read) {
+  req->req.data = self;
+  req->callback = on_read;
 
+  uv_fs_read(loop, (uv_fs_t *) req, self->_file, &(req->buffer), 1, req->offset, on_uv_callback);
 }

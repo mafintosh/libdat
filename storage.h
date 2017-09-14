@@ -4,31 +4,30 @@
 #include <uv.h>
 
 typedef struct {
-  uv_fs_t req;
-  void* ctx;
-  void* callback;
-} _dat_storage_req;
-
-typedef struct dat_storage_t {
   // public
-
-  void (*on_open)(struct dat_storage_t* self, long result, void* ctx);
-  void (*on_close)(struct dat_storage_t* self, long result, void* ctx);
-  void (*on_read)(struct dat_storage_t* self, long result, void* ctx);
-  void (*on_write)(struct dat_storage_t* self, long result, void* ctx);
 
   char *path;
 
   // private
 
-  _dat_storage_req _open_req;
+  uv_file _file;
 
 } dat_storage_t;
 
+typedef struct {
+  uv_fs_t req;
+  uv_buf_t buffer;
+  long offset;
+  void* ctx;
+  void* callback;
+} dat_storage_req_t;
+
+typedef void (*dat_storage_callback_t)(dat_storage_t* self, long result, dat_storage_req_t* req);
+
 void dat_storage_init (dat_storage_t *self, char *path);
-void dat_storage_open (dat_storage_t *self, void *ctx, void (*on_open)(struct dat_storage_t* self, long result, void* ctx));
-void dat_storage_read (dat_storage_t *self, void *ctx, long offset, uv_buf_t *buf);
-void dat_storage_write (dat_storage_t *self, void *ctx, long offset, uv_buf_t *buf);
-void dat_storage_close (dat_storage_t *self, void *ctx);
+void dat_storage_open (dat_storage_t *self, dat_storage_req_t* req, dat_storage_callback_t on_open);
+void dat_storage_read (dat_storage_t *self, dat_storage_req_t* req, dat_storage_callback_t on_read);
+void dat_storage_write (dat_storage_t *self, dat_storage_req_t* req, dat_storage_callback_t on_write);
+void dat_storage_close (dat_storage_t *self, dat_storage_req_t* req, dat_storage_callback_t on_close);
 
 #endif
