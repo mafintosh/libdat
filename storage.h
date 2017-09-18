@@ -7,17 +7,19 @@ typedef struct {
   // public
 
   char *path;
+  uint64_t length;
 
   // private
 
-  uv_file _file;
+  uv_file file;
 
 } dat_storage_t;
 
 typedef struct {
   uv_fs_t req;
   uv_buf_t buffer;
-  long offset;
+  uv_buf_t buffer_mut;
+  uint64_t offset;
   void* ctx;
   void* callback;
 } dat_storage_req_t;
